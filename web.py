@@ -1,57 +1,82 @@
+import streamlit as st
 import pandas as pd
 import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
-from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
-import streamlit as st
+from sklearn.cluster import KMeans
+from sklearn.ensemble import IsolationForest
+from textblob import TextBlob
+from sklearn.feature_extraction.text import CountVectorizer
+import io
 
-# === 1. Đọc và xử lý dữ liệu ===
-@st.cache_data
-def load_data():
-    uploaded_file = st.file_uploader("📁 Tải lên file CSV", type=["csv"])
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
-        return df
-    else:
-        st.warning("⚠️ Vui lòng tải lên file CSV để tiếp tục.")
-        st.stop()
-    # Cột không xử lý số
-    non_numeric_cols = ["CUST_ID", "COMMENT", "ITEM"]
-    for col in df.columns:
-        if col not in non_numeric_cols:
-            df[col] = df[col].apply(clean_currency)
+st.set_page_config(page_title="Phân Tích Tâm Lý Người Tiêu Dùng", layout="wide")
+st.title("📊 Phân Tích Tâm Lý Người Tiêu Dùng")
 
-    df.dropna(inplace=True)
-    return df
+st.markdown("""
+<style>
+    .css-1d391kg {padding-top: 1rem;}
+    .reportview-container .markdown-text-container { font-family: 'Arial'; font-size:16px; }
+</style>
+""", unsafe_allow_html=True)
 
-# === 2. Streamlit UI ===
-st.set_page_config(page_title="Phân tích tâm lý khách hàng", layout="wide")
-st.title("🔍 Phân tích tâm lý khách hàng")
-df = load_data()
+uploaded_file = st.file_uploader("Tải lên file CSV dữ liệu đã làm sạch", type="csv")
 
-# === 3. Phân cụm KMeans ===
-st.subheader("2️⃣ Phân cụm khách hàng (KMeans)")
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
 
-non_numeric_cols = ["CUST_ID", "COMMENT", "ITEM"]
-X = df.drop(columns=non_numeric_cols)
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
+    st.subheader("1. Dữ liệu ban đầu")
+    st.dataframe(df.head())
 
-kmeans = KMeans(n_clusters=3, random_state=42)
-clusters = kmeans.fit_predict(X_scaled)
-df["CLUSTER"] = clusters
+    st.subheader("2. Phân tích cảm xúc từ đánh giá")
+    def get_sentiment(text):
+        if pd.isnull(text):
+            return 0
+        return TextBlob(str(text)).sentiment.polarity
 
-# === 4. Hiển thị kết quả ===
-st.write("### Kết quả phân cụm khách hàng")
-st.dataframe(df[["CUST_ID", "CLUSTER", "COMMENT", "ITEM"]])
+    df["SENTIMENT"] = df["COMMENT"].apply(get_sentiment)
+    st.write("Hoàn tất phân tích cảm xúc.")
 
-# === 5. Biểu đồ phân cụm ===
-st.write("### Phân bố số lượng khách hàng theo cụm")
-cluster_counts = df["CLUSTER"].value_counts().sort_index()
-fig, ax = plt.subplots()
-sns.barplot(x=cluster_counts.index, y=cluster_counts.values, ax=ax)
-ax.set_xlabel("Cụm")
-ax.set_ylabel("Số lượng khách hàng")
-ax.set_title("Phân bố theo cụm")
-st.pyplot(fig)
+    numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
+    X = df[numeric_cols].fillna(0)
+
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    st.subheader("3. Phân cụm khách hàng (KMeans)")
+    kmeans = KMeans(n_clusters=3, random_state=42)
+    df['CLUSTER'] = kmeans.fit_predict(X_scaled)
+    st.bar_chart(df['CLUSTER'].value_counts())
+
+    st.subheader("4. Phát hiện khách hàng bất thường (Isolation Forest)")
+    iso_forest = IsolationForest(contamination=0.05, random_state=42)
+    df['OUTLIER'] = iso_forest.fit_predict(X_scaled)
+    df['OUTLIER'] = df['OUTLIER'].map({1: 'Bình thường', -1: 'Bất thường'})
+    st.dataframe(df[df['OUTLIER'] == 'Bất thường'][["CUST_ID", "OUTLIER"]])
+
+    st.subheader("5. Từ khóa nổi bật trong đánh giá")
+    vectorizer = CountVectorizer(stop_words='english', max_features=10)
+    X_words = vectorizer.fit_transform(df['COMMENT'].dropna().astype(str))
+    keywords = vectorizer.get_feature_names_out()
+    st.write(", ".join(keywords))
+
+    st.subheader("6. Gợi ý chiến lược theo cụm khách hàng")
+    def product_strategy(cluster_id):
+        if cluster_id == 0:
+            return "Tập trung cải tiến dịch vụ hậu mãi và hỗ trợ khách hàng"
+        elif cluster_id == 1:
+            return "Cải tiến chất lượng sản phẩm, giá hợp lý"
+        else:
+            return "Đẩy mạnh quảng cáo, tập trung vào điểm mạnh sản phẩm"
+
+    df["GỢI_Ý_CHIẾN_LƯỢC"] = df["CLUSTER"].apply(product_strategy)
+    st.dataframe(df[["CUST_ID", "CLUSTER", "GỢI_Ý_CHIẾN_LƯỢC"]].head(10))
+
+    st.subheader("7. Tải xuống kết quả phân tích")
+    output_csv = df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="📥 Tải file kết quả (.csv)",
+        data=output_csv,
+        file_name='ket_qua_phan_tich.csv',
+        mime='text/csv'
+    )
+else:
+    st.warning("Vui lòng tải lên file CSV để bắt đầu phân tích.")
