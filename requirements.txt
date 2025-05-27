@@ -7,4 +7,4 @@ scikit-learn
 textblob
 wordcloud
 nltk
-gensim
+gensim==4.3.1
