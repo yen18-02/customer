@@ -1,7 +1,10 @@
+streamlit
 pandas
 numpy
 scikit-learn
-streamlit
+textblob
 matplotlib
 seaborn
-textblob
+wordcloud
+gensim
+nltk
