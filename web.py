@@ -2,11 +2,19 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.ensemble import IsolationForest
 from textblob import TextBlob
-from sklearn.feature_extraction.text import CountVectorizer
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
+import seaborn as sns
 import io
+from gensim import corpora, models
+import nltk
+nltk.download('punkt')
+from nltk.tokenize import word_tokenize
 
 st.set_page_config(page_title="Phân Tích Tâm Lý Người Tiêu Dùng", layout="wide")
 st.title("📊 Phân Tích Tâm Lý Người Tiêu Dùng")
@@ -26,6 +34,7 @@ if uploaded_file is not None:
     st.subheader("1. Dữ liệu ban đầu")
     st.dataframe(df.head())
 
+    # Phân tích cảm xúc
     st.subheader("2. Phân tích cảm xúc từ đánh giá")
     def get_sentiment(text):
         if pd.isnull(text):
@@ -35,30 +44,60 @@ if uploaded_file is not None:
     df["SENTIMENT"] = df["COMMENT"].apply(get_sentiment)
     st.write("Hoàn tất phân tích cảm xúc.")
 
-    numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
-    X = df[numeric_cols].fillna(0)
+    # TF-IDF
+    st.subheader("3. Phân tích TF-IDF")
+    tfidf_vectorizer = TfidfVectorizer(max_features=100, stop_words='english')
+    tfidf_matrix = tfidf_vectorizer.fit_transform(df['COMMENT'].fillna('').astype(str))
+    tfidf_df = pd.DataFrame(tfidf_matrix.toarray(), columns=tfidf_vectorizer.get_feature_names_out())
+    st.write("Từ khóa phổ biến (TF-IDF):")
+    st.write(tfidf_df.sum().sort_values(ascending=False).head(10))
 
+    # WordCloud
+    st.subheader("4. WordCloud từ bình luận")
+    text = " ".join(df['COMMENT'].dropna().astype(str))
+    wordcloud = WordCloud(width=800, height=400).generate(text)
+    plt.figure(figsize=(10, 5))
+    plt.imshow(wordcloud, interpolation='bilinear')
+    plt.axis("off")
+    st.pyplot(plt)
+
+    # LDA
+    st.subheader("5. Phân tích chủ đề (LDA)")
+    tokenized_docs = df['COMMENT'].dropna().apply(lambda x: word_tokenize(str(x).lower()))
+    dictionary = corpora.Dictionary(tokenized_docs)
+    corpus = [dictionary.doc2bow(doc) for doc in tokenized_docs]
+    lda_model = models.LdaModel(corpus, num_topics=3, id2word=dictionary, passes=10)
+    topics = lda_model.print_topics(num_words=5)
+    for i, topic in topics:
+        st.write(f"Chủ đề {i+1}: {topic}")
+
+    # PCA
+    st.subheader("6. Giảm chiều PCA và trực quan hóa")
     scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
+    scaled_data = scaler.fit_transform(df.select_dtypes(include=np.number).fillna(0))
+    pca = PCA(n_components=2)
+    pca_result = pca.fit_transform(scaled_data)
+    df['PCA1'] = pca_result[:, 0]
+    df['PCA2'] = pca_result[:, 1]
+    fig, ax = plt.subplots()
+    sns.scatterplot(x='PCA1', y='PCA2', data=df, hue='SENTIMENT', ax=ax)
+    st.pyplot(fig)
 
-    st.subheader("3. Phân cụm khách hàng (KMeans)")
+    # KMeans
+    st.subheader("7. Phân cụm khách hàng (KMeans)")
     kmeans = KMeans(n_clusters=3, random_state=42)
-    df['CLUSTER'] = kmeans.fit_predict(X_scaled)
+    df['CLUSTER'] = kmeans.fit_predict(scaled_data)
     st.bar_chart(df['CLUSTER'].value_counts())
 
-    st.subheader("4. Phát hiện khách hàng bất thường (Isolation Forest)")
+    # Isolation Forest
+    st.subheader("8. Phát hiện khách hàng bất thường")
     iso_forest = IsolationForest(contamination=0.05, random_state=42)
-    df['OUTLIER'] = iso_forest.fit_predict(X_scaled)
+    df['OUTLIER'] = iso_forest.fit_predict(scaled_data)
     df['OUTLIER'] = df['OUTLIER'].map({1: 'Bình thường', -1: 'Bất thường'})
-    st.dataframe(df[df['OUTLIER'] == 'Bất thường'][["CUST_ID", "OUTLIER"]])
+    st.dataframe(df[df['OUTLIER'] == 'Bất thường'][['CUST_ID', 'OUTLIER']])
 
-    st.subheader("5. Từ khóa nổi bật trong đánh giá")
-    vectorizer = CountVectorizer(stop_words='english', max_features=10)
-    X_words = vectorizer.fit_transform(df['COMMENT'].dropna().astype(str))
-    keywords = vectorizer.get_feature_names_out()
-    st.write(", ".join(keywords))
-
-    st.subheader("6. Gợi ý chiến lược theo cụm khách hàng")
+    # Chiến lược
+    st.subheader("9. Gợi ý chiến lược theo cụm khách hàng")
     def product_strategy(cluster_id):
         if cluster_id == 0:
             return "Tập trung cải tiến dịch vụ hậu mãi và hỗ trợ khách hàng"
@@ -70,7 +109,7 @@ if uploaded_file is not None:
     df["GỢI_Ý_CHIẾN_LƯỢC"] = df["CLUSTER"].apply(product_strategy)
     st.dataframe(df[["CUST_ID", "CLUSTER", "GỢI_Ý_CHIẾN_LƯỢC"]].head(10))
 
-    st.subheader("7. Tải xuống kết quả phân tích")
+    st.subheader("10. Tải xuống kết quả")
     output_csv = df.to_csv(index=False).encode('utf-8')
     st.download_button(
         label="📥 Tải file kết quả (.csv)",
@@ -78,5 +117,6 @@ if uploaded_file is not None:
         file_name='ket_qua_phan_tich.csv',
         mime='text/csv'
     )
+
 else:
     st.warning("Vui lòng tải lên file CSV để bắt đầu phân tích.")
