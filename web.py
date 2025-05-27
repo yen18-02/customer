@@ -9,15 +9,13 @@ import streamlit as st
 # === 1. Đọc và xử lý dữ liệu ===
 @st.cache_data
 def load_data():
-    df = pd.read_csv("du_lieu_chuan_vnd.csv")
-
-    # Hàm làm sạch chuỗi tiền tệ
-    def clean_currency(value):
-        try:
-            return float(str(value).replace(".", "").replace(" VNĐ", "").replace("VNĐ", "").strip())
-        except:
-            return np.nan
-
+    uploaded_file = st.file_uploader("📁 Tải lên file CSV", type=["csv"])
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file)
+        return df
+    else:
+        st.warning("⚠️ Vui lòng tải lên file CSV để tiếp tục.")
+        st.stop()
     # Cột không xử lý số
     non_numeric_cols = ["CUST_ID", "COMMENT", "ITEM"]
     for col in df.columns:
