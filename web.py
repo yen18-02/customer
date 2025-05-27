@@ -11,7 +11,6 @@ from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 import seaborn as sns
 import io
-from gensim import corpora, models
 import nltk
 nltk.download('punkt')
 from nltk.tokenize import word_tokenize
@@ -62,14 +61,14 @@ if uploaded_file is not None:
     st.pyplot(plt)
 
     # LDA
-    st.subheader("5. Phân tích chủ đề (LDA)")
-    tokenized_docs = df['COMMENT'].dropna().apply(lambda x: word_tokenize(str(x).lower()))
-    dictionary = corpora.Dictionary(tokenized_docs)
-    corpus = [dictionary.doc2bow(doc) for doc in tokenized_docs]
-    lda_model = models.LdaModel(corpus, num_topics=3, id2word=dictionary, passes=10)
-    topics = lda_model.print_topics(num_words=5)
-    for i, topic in topics:
-        st.write(f"Chủ đề {i+1}: {topic}")
+    #st.subheader("5. Phân tích chủ đề (LDA)")
+    #tokenized_docs = df['COMMENT'].dropna().apply(lambda x: word_tokenize(str(x).lower()))
+    #dictionary = corpora.Dictionary(tokenized_docs)
+    #corpus = [dictionary.doc2bow(doc) for doc in tokenized_docs]
+    #lda_model = models.LdaModel(corpus, num_topics=3, id2word=dictionary, passes=10)
+    #topics = lda_model.print_topics(num_words=5)
+    #for i, topic in topics:
+    #    st.write(f"Chủ đề {i+1}: {topic}")
 
     # PCA
     st.subheader("6. Giảm chiều PCA và trực quan hóa")
