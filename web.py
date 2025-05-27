@@ -60,18 +60,8 @@ if uploaded_file is not None:
     plt.axis("off")
     st.pyplot(plt)
 
-    # LDA
-    #st.subheader("5. Phân tích chủ đề (LDA)")
-    #tokenized_docs = df['COMMENT'].dropna().apply(lambda x: word_tokenize(str(x).lower()))
-    #dictionary = corpora.Dictionary(tokenized_docs)
-    #corpus = [dictionary.doc2bow(doc) for doc in tokenized_docs]
-    #lda_model = models.LdaModel(corpus, num_topics=3, id2word=dictionary, passes=10)
-    #topics = lda_model.print_topics(num_words=5)
-    #for i, topic in topics:
-    #    st.write(f"Chủ đề {i+1}: {topic}")
-
     # PCA
-    st.subheader("6. Giảm chiều PCA và trực quan hóa")
+    st.subheader("5. Giảm chiều PCA và trực quan hóa")
     scaler = StandardScaler()
     scaled_data = scaler.fit_transform(df.select_dtypes(include=np.number).fillna(0))
     pca = PCA(n_components=2)
@@ -83,20 +73,20 @@ if uploaded_file is not None:
     st.pyplot(fig)
 
     # KMeans
-    st.subheader("7. Phân cụm khách hàng (KMeans)")
+    st.subheader("6. Phân cụm khách hàng (KMeans)")
     kmeans = KMeans(n_clusters=3, random_state=42)
     df['CLUSTER'] = kmeans.fit_predict(scaled_data)
     st.bar_chart(df['CLUSTER'].value_counts())
 
     # Isolation Forest
-    st.subheader("8. Phát hiện khách hàng bất thường")
+    st.subheader("7. Phát hiện khách hàng bất thường")
     iso_forest = IsolationForest(contamination=0.05, random_state=42)
     df['OUTLIER'] = iso_forest.fit_predict(scaled_data)
     df['OUTLIER'] = df['OUTLIER'].map({1: 'Bình thường', -1: 'Bất thường'})
     st.dataframe(df[df['OUTLIER'] == 'Bất thường'][['CUST_ID', 'OUTLIER']])
 
     # Chiến lược
-    st.subheader("9. Gợi ý chiến lược theo cụm khách hàng")
+    st.subheader("8. Gợi ý chiến lược theo cụm khách hàng")
     def product_strategy(cluster_id):
         if cluster_id == 0:
             return "Tập trung cải tiến dịch vụ hậu mãi và hỗ trợ khách hàng"
@@ -108,7 +98,7 @@ if uploaded_file is not None:
     df["GỢI_Ý_CHIẾN_LƯỢC"] = df["CLUSTER"].apply(product_strategy)
     st.dataframe(df[["CUST_ID", "CLUSTER", "GỢI_Ý_CHIẾN_LƯỢC"]].head(10))
 
-    st.subheader("10. Tải xuống kết quả")
+    st.subheader("9. Tải xuống kết quả")
     output_csv = df.to_csv(index=False).encode('utf-8')
     st.download_button(
         label="📥 Tải file kết quả (.csv)",
