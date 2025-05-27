@@ -8,13 +8,15 @@ import streamlit as st
 
 # === 1. Đọc và xử lý dữ liệu ===
 @st.cache_data
-def uploaded_file = st.file_uploader("Tải lên file CSV", type=["csv"])
+def load_data():
+uploaded_file = st.file_uploader("Tải lên file CSV", type=["csv"])
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
     # xử lý dữ liệu như cũ
 else:
     st.warning("Vui lòng tải lên file CSV để tiếp tục.")
     st.stop()
+
     # Hàm làm sạch chuỗi tiền tệ
     def clean_currency(value):
         try:
