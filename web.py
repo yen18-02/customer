@@ -25,7 +25,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-uploaded_file = st.file_uploader("Tải lên file CSV dữ liệu đã làm sạch", type="csv")
+uploaded_file = st.file_uploader("Tải lên file dữ liệu CSV", type="csv")
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
